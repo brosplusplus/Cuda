@@ -20,15 +20,15 @@ int main(int argc, char** argv)
 	int gauss=0, laplace=0, sharpen=0, bumping=0, noise=0, histo=0;
 	char *image = NULL;
 	
-	unsigned int N;
-	unsigned int numBytes;
-	unsigned int nBlocks, nThreads;
-
-	float TiempoTotal, TiempoKernel;
-	cudaEvent_t E0, E1, E2, E3;
-
-	float *h_A, *h_B, *h_C;
-	float *d_A, *d_B, *d_C;
+	//~ unsigned int N;
+	//~ unsigned int numBytes;
+	//~ unsigned int nBlocks, nThreads;
+//~ 
+	//~ float TiempoTotal, TiempoKernel;
+	//~ cudaEvent_t E0, E1, E2, E3;
+//~ 
+	//~ float *h_A, *h_B, *h_C;
+	//~ float *d_A, *d_B, *d_C;
 	
 	while ((c = getopt (argc, argv, "glsbnaHi:")) != -1)
 	{
