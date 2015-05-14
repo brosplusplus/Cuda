@@ -1,0 +1,3 @@
+Host cuda
+	Hostname boada.ac.upc.edu
+	User	cuda07
