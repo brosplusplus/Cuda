@@ -162,9 +162,6 @@ void process_file(void)
                 png_byte* row = row_pointers[y];
                 for (x=0; x<width; x++) {
                         png_byte* ptr = &(row[x*4]);
-                        printf("Pixel at position [ %d - %d ] has RGBA values: %d - %d - %d - %d\n",
-                               x, y, ptr[0], ptr[1], ptr[2], ptr[3]);
-
                         /* set red value to 0 and green value to the blue one */
                         //~ ptr[0] = 128; //R
                         //~ ptr[1] = 128; //G

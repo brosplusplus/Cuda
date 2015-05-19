@@ -7,7 +7,6 @@
 
 #define N 16
 #define M 32
-#define K 200
 
 //~ __global__ void (volatile int *foo) {
 //~ 
@@ -20,8 +19,19 @@ int main(int argc, char** argv)
 	int c;
 	int gauss=0, laplace=0, sharpen=0, bumping=0, noise=0, histo=0;
 	char *image = NULL;
+        char *output = NULL;
 	
-	while ((c = getopt (argc, argv, "glsbnaHi:")) != -1)
+	//~ unsigned int N;
+	//~ unsigned int numBytes;
+	//~ unsigned int nBlocks, nThreads;
+//~ 
+	//~ float TiempoTotal, TiempoKernel;
+	//~ cudaEvent_t E0, E1, E2, E3;
+//~ 
+	//~ float *h_A, *h_B, *h_C;
+	//~ float *d_A, *d_B, *d_C;
+	
+	while ((c = getopt (argc, argv, "glsbnaHi:o:")) != -1)
 	{
 		switch (c)
 		{
@@ -46,6 +56,9 @@ int main(int argc, char** argv)
 			case 'n':
 				noise = 1;
 				break;
+                        case 'o':
+                                output = optarg;
+                                break;
 			case 's':
 				sharpen = 1;
 				break;
@@ -53,10 +66,17 @@ int main(int argc, char** argv)
 				abort();
 		}
 	}
-	
+	if (image == NULL) {
+                fprintf(stderr, "ERROR: Necesito una imagen\n");
+                return -1;
+        }
+        if (output == NULL) {
+                fprintf(stderr, "WARN: Tomando salida por defecto : salida.png\n");
+                output = "salida.png";
+        }
 	read_png_file(image);
     process_file();
-	write_png_file("salida.png");	
+	write_png_file(output);	
 	
 	return 0;
 }    
