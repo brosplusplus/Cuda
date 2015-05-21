@@ -9,5 +9,5 @@
 #@ wall_clock_limit = 00:05:00
 
 
-time ./exe -i img/PNG_transparency_demonstration_2.png
+time ./exe -i img/world.png
 

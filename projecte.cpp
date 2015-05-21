@@ -49,9 +49,6 @@ void InitM(int N, int M, vectorr Mat) {
      Mat[i] = rand() / (float) RAND_MAX;
 }
 
-
-
-
 vectorr TestCM(int N, int M, int P, vectorr A, vectorr B) {
 	int i, j, k,l;
 	float tmp;
@@ -72,8 +69,8 @@ vectorr TestCM(int N, int M, int P, vectorr A, vectorr B) {
 					count++;
 				}
 			}
-			if (acc >= 0.0) {
-				fprintf(stderr, "i: %d, j:%d, PACO: %f", i, j, acc);
+			if (acc >= 1.0) {
+				//fprintf(stderr, "i: %d, j:%d, PACO: %f", i, j, acc);
 				acc = 1.0;
 			}
 			C[i*M+j]=acc;
@@ -112,11 +109,11 @@ unsigned char** greyChar(int N, int M, vectorr m)
 void gaussFilt(int n, vectorr &ret){
 	printf("GAUSS\n");
 	ret = (vectorr)malloc(n*n*sizeof(float));
-	int i,j;
+	int i;
 	for (i = 0; i < n*n; i++) {
-		ret[i] = 0.;
+		ret[i] = 1.0/n;
 	}
-	ret[4] = 1.;
+	ret[4] = 1./n*n;
 }
 
 int main(int argc, char** argv)
@@ -200,7 +197,6 @@ int main(int argc, char** argv)
 	print(3,3,filt);
 	C = TestCM(width, height, 3, m, filt);
 	fprintf(stderr, "TEST\n");
-	fprintf(stderr, "PRINTED\n");
 	row_pointers = greyChar(width, height, C);
 	fprintf(stderr, "GREYED\n");
 	write_png_file(output);	

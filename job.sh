@@ -9,5 +9,5 @@
 # Cambiar el shell
 #$ -S /bin/bash
 
-./exe -i img/PNG_transparency_demonstration_2.png
+./exe -i img/world.png
 
