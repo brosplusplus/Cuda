@@ -3,10 +3,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <time.h>
-
+#include <vector>
 #include "readpng.cpp"
 
-typedef float*  vector;
+typedef float*  vectorr;
 
 //~ __global__ void img2bw() {
 //~ 
@@ -22,12 +22,12 @@ void print(int N, int M, float *C)
   }
 }
 
-vector img2bw(int N, int M, unsigned char** foto)
+vectorr img2bw(int N, int M, unsigned char** foto)
 {
 			//0.21 R + 0.72 G + 0.07 B
 	int i, j;
 	int count=0;
-	vector ret = (vector) malloc(M*N*sizeof(float));
+	vectorr ret = (vectorr) malloc(M*N*sizeof(float));
 	fprintf(stderr, "%d -> %lu\n", (N*M), (N*M*sizeof(float)));
 	for (i=0; i<M; i++) {
 		unsigned char* r = foto[i];
@@ -42,7 +42,7 @@ vector img2bw(int N, int M, unsigned char** foto)
 	return ret;
 }
 
-void InitM(int N, int M, vector Mat) {
+void InitM(int N, int M, vectorr Mat) {
    int i;
    srand(time(NULL));
    for (i=0; i<N*M; i++) 
@@ -52,28 +52,30 @@ void InitM(int N, int M, vector Mat) {
 
 
 
-vector TestCM(int N, int M, int P, vector A, vector B) {
+vectorr TestCM(int N, int M, int P, vectorr A, vectorr B) {
 	int i, j, k,l;
 	float tmp;
 	float acc;
 	int count;
 	int mod=(P-1)/2;
-	vector C = (vector) malloc(N*M*sizeof(float));
+	vectorr C = (vectorr) malloc(N*M*sizeof(float));
   fprintf(stderr, "M=%d, N=%d\n", M, N); 
-	for (i=1; i<M-1; i++) {
-		for (j=1; j<N-1; j++) {
+	for (i=1; i<N-(mod-1); i++) {
+		for (j=1; j<M-(mod-1); j++) {
 			acc = 0.0;
 			//~ fprintf(stderr, "i: %d, j: %d\n", i, j);
 			for (k=0; k<P; k++) {
 				for (l=0; l<P; l++) {
-					float aux = A[(i+(k-mod))*N+(j+(l-mod))];
+					float aux = A[(i+(k-mod))*M+(j+(l-mod))];
 					float auxb = B[k*P+l];
 					acc = acc + aux * auxb;
 					count++;
 				}
 			}
-			if (acc > 1.0) 
+			if (acc >= 0.0) {
+				fprintf(stderr, "i: %d, j:%d, PACO: %f", i, j, acc);
 				acc = 1.0;
+			}
 			C[i*M+j]=acc;
 		}
 	}
@@ -81,14 +83,20 @@ vector TestCM(int N, int M, int P, vector A, vector B) {
   return C;
 }
 
-unsigned char** greyChar(int N, int M, vector m)
+unsigned char** greyChar(int N, int M, vectorr m)
 {
 	unsigned char** ret = (unsigned char**) malloc(M*sizeof(unsigned char*));
+	std::vector<bool> v(N*M*sizeof(float));
 	int i,j;
+	int count = 0;
 	for (i=0; i<M; i++) {
 		unsigned char* row = (unsigned char*) malloc(4*N*sizeof(unsigned char));
 		for (j=0; j<N; j++) {
 			unsigned char c = m[i*N+j]*255;
+			if (v[i*N+j])
+				count++;
+			else
+				v[i*N+j] = true;
 			int k = j*4;
 			row[k+0] = c;
 			row[k+1] = c;
@@ -97,17 +105,18 @@ unsigned char** greyChar(int N, int M, vector m)
 		}
 		ret[i] = row;
 	}
+	fprintf(stderr, "\nCOUNT: %d\n", count);
 	return ret;
 }
 
-void gaussFilt(int n, vector &ret){
+void gaussFilt(int n, vectorr &ret){
 	printf("GAUSS\n");
-	ret = (vector)malloc(n*n*sizeof(float));
+	ret = (vectorr)malloc(n*n*sizeof(float));
 	int i,j;
 	for (i = 0; i < n*n; i++) {
-		ret[i] = 1/9.;
+		ret[i] = 0.;
 	}
-	ret[4] = 1/9.;
+	ret[4] = 1.;
 }
 
 int main(int argc, char** argv)
@@ -182,10 +191,10 @@ int main(int argc, char** argv)
 		abort_("[process_file] color_type of input file must be PNG_COLOR_TYPE_RGBA (%d) (is %d)",
 					 PNG_COLOR_TYPE_RGBA, png_get_color_type(png_ptr, info_ptr));
 
-	vector m = img2bw(width, height, row_pointers);
+	vectorr m = img2bw(width, height, row_pointers);
 	fprintf(stderr, "B&W2\n");
-	vector filt;
-	vector C;
+	vectorr filt;
+	vectorr C;
 	//~ InitM(3,3,filt);
 	gaussFilt(3, filt);
 	print(3,3,filt);
