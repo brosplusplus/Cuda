@@ -1,0 +1,3 @@
+%#codegen
+
+fspecial('laplacian')

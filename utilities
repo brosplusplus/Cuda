@@ -1,0 +1,67 @@
+//~ vectorr img2bw(int N, int M, unsigned char** foto)
+//~ {
+			//~ //0.21 R + 0.72 G + 0.07 B
+	//~ int i, j;
+	//~ int count=0;
+	//~ vectorr ret = (vectorr) malloc(M*N*sizeof(float));
+	//~ fprintf(stderr, "%d -> %lu\n", (N*M), (N*M*sizeof(float)));
+	//~ for (i=0; i<M; i++) {
+		//~ unsigned char* r = foto[i];
+		//~ for (j=0; j<N; j++) {
+			//~ unsigned char* ptr = &(r[j*4]);
+			//~ float aux = float(0.21*ptr[0] + 0.72*ptr[1] + 0.07*ptr[2])/255.0;
+			//~ ret[i][j] = aux;
+			//~ ++count;
+		//~ }
+	//~ }
+	//~ fprintf(stderr, "Run over i: %d, j: %d, : count: %d", i, j, count);
+	//~ return ret;
+//~ }
+
+//~ void InitM(int N, int M, vectorr Mat) {
+   //~ int i;
+   //~ srand(time(NULL));
+   //~ for (i=0; i<N*M; i++) 
+     //~ Mat[i] = rand() / (float) RAND_MAX;
+//~ }
+
+//~ vectorr TestCM(int N, int M, int P, vectorr A, vectorr B) {
+	//~ int i, j, k,l;
+	//~ float tmp;
+	//~ float acc;
+	//~ int count;
+	//~ int mod=(P-1)/2;
+	//~ vectorr C = (vectorr) malloc(N*M*sizeof(float));
+  //~ fprintf(stderr, "M=%d, N=%d\n", M, N); 
+	//~ for (i=1; i<N-(mod-1); i++) {
+		//~ for (j=1; j<M-(mod-1); j++) {
+			//~ acc = 0.0;
+			//~ fprintf(stderr, "i: %d, j: %d\n", i, j);
+			//~ for (k=0; k<P; k++) {
+				//~ for (l=0; l<P; l++) {
+					//~ float aux = A[(i+(k-mod))*M+(j+(l-mod))];
+					//~ float auxb = B[k*P+l];
+					//~ acc = acc + aux * auxb;
+					//~ count++;
+				//~ }
+			//~ }
+			//~ if (acc >= 1.0) {
+				//~ //fprintf(stderr, "i: %d, j:%d, PACO: %f", i, j, acc);
+				//~ acc = 1.0;
+			//~ }
+			//~ C[i*M+j]=acc;
+		//~ }
+	//~ }
+	//~ fprintf(stderr, "count: %d", count);
+  //~ return C;
+//~ }
+
+//~ void gaussFilt(int n, vectorr &ret){
+	//~ printf("GAUSS\n");
+	//~ ret = (vectorr)malloc(n*n*sizeof(float));
+	//~ int i;
+	//~ for (i = 0; i < n*n; i++) {
+		//~ ret[i] = 1.0/n;
+	//~ }
+	//~ ret[4] = 1./n*n;
+//~ }

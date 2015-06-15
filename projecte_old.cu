@@ -9,13 +9,13 @@
 
 typedef float*  vectorr;
 
-#define SIZE 32
+#define SIZE 16
 
 #ifndef PINNED
 #define PINNED 0
 #endif
 
-__global__ void applyFilt(int N, int M, int P, vectorr entrada, vectorr filt, vectorr sortida) {
+__global__ void applyKK(int N, int M, int P, vectorr entrada, vectorr filt, vectorr sortida) {
 	/* N ample de la matriu
 	 * M alçada de la matriu
 	 * P mida filtre
@@ -24,14 +24,10 @@ __global__ void applyFilt(int N, int M, int P, vectorr entrada, vectorr filt, ve
 	 * filt matriu filtre
 	 */
 	int row = blockIdx.y * blockDim.y + threadIdx.y;
-	int column = blockIdx.x * blockDim.x + threadIdx.x;
 	int mod = (P-1)/2;
 	int j, k, l;
 	float acc;
-	j = column;
-//or (j = mod; j < M-mod; ++j)
-//
-	if (row >= mod && column >= mod && row < N-mod && column < M-mod) 
+	for (j = mod; j < M-mod; ++j)
 	{
 		acc = 0;
 		for (k=0; k<P; k++) {
@@ -46,11 +42,6 @@ __global__ void applyFilt(int N, int M, int P, vectorr entrada, vectorr filt, ve
 		}
 		sortida[row*N+j] =  acc;
 	}
-	else if (row >= 0 && column >= 0 && row < N-1 && column < M-1){
-		acc = entrada[row*N+j];
-		//~ printf("no he entrat. %d, %d\n", row, column);
-	}
-//
 }
 
 vectorr img2bw(int N, int M, unsigned char** foto, int offset)
@@ -58,11 +49,18 @@ vectorr img2bw(int N, int M, unsigned char** foto, int offset)
 			//0.21 R + 0.72 G + 0.07 B
 	int i, j;
 	//~ int count=0;
-	int size = N*M;
+	int afegit = offset*2;
+	int size = (N+afegit) * (M+afegit);
 	vectorr ret = (vectorr) malloc(size*sizeof(float));
-	//~ fprintf(stderr, "%d -> %lu\n", (N*M), (N*M*sizeof(float)));
+	fprintf(stderr, "%d -> %lu\n", (N*M), (N*M*sizeof(float)));
 	for (i=0; i<M + offset; i++) {
-		unsigned char* r = foto[i];			
+		unsigned char* r;
+		if (i < offset)
+			r = foto[(M-1)-i];
+		else if (i >= M)
+			r = foto[i-M];
+		else
+			r = foto[i];			
 		for (j=0; j<N + offset; j++) {
 			unsigned char* ptr = &(r[j*4]);
 			float aux = float(0.21*ptr[0] + 0.72*ptr[1] + 0.07*ptr[2])/255.0;
@@ -118,7 +116,7 @@ unsigned char** greyChar(int N, int M, vectorr m)
 		}
 		ret[i] = row;
 	}
-	//~ fprintf(stderr, "\nCOUNT: %d\n", count);
+	fprintf(stderr, "\nCOUNT: %d\n", count);
 	return ret;
 }
 
@@ -135,9 +133,7 @@ int main(int argc, char** argv)
 	unsigned int nBlocks, nThreads;
 	
 	vectorr 	h_in, d_in;
-	vectorr		h_out_gauss, h_out_laplace, d_out;
-	vectorr		h_filt_guass, d_filt_gauss,
-			h_filt_lapla, d_filt_lapla;
+	vectorr		h_out, d_out, h_filt, d_filt;
 	
 	float TiempoTotal, TiempoKernel;
 	cudaEvent_t E0, E1, E2, E3;
@@ -187,11 +183,12 @@ int main(int argc, char** argv)
 		output = "salida.png";
 	}
 	
-	//~ fprintf(stderr, "toread\n");
+	fprintf(stderr, "toread\n");
 	begin = clock();
 	read_png_file(image);
 	end = clock();
 	//~ double elapsed_read = (double(end-begin)/CLOCKS_PER_SEC);
+	
 	if (png_get_color_type(png_ptr, info_ptr) == PNG_COLOR_TYPE_RGB)
 		abort_("[process_file] input file is PNG_COLOR_TYPE_RGB but must be PNG_COLOR_TYPE_RGBA ",
 						"(lacks the alpha channel)");
@@ -201,8 +198,6 @@ int main(int argc, char** argv)
 					 PNG_COLOR_TYPE_RGBA, png_get_color_type(png_ptr, info_ptr));
 	
 	h_filt = gaussFilt(gauss);
-	//~ printf("Filtre de gauss\n");
-	//~ print(gauss,gauss, h_filt);
 	int mod = (gauss-1)/2; //per ampliar la foto i evitar segfault.
 	h_in = img2bw(width, height, row_pointers, mod);
 
@@ -211,8 +206,8 @@ int main(int argc, char** argv)
 	nThreads = SIZE;
 
   // numero de Blocks en cada dimension 
-	//nBlocks = N/nThreads; 
-	nBlocks = (N+nThreads-1)/nThreads;
+	nBlocks = N/nThreads; 
+	
 	numBytes = N * N * sizeof(float);
 	numBytesF = gauss*gauss * sizeof(float);
 	
@@ -234,6 +229,7 @@ int main(int argc, char** argv)
 		// Obtener Memoria en el host
 		//~ row_pointers = (unsigned char**) malloc(numBytes); 
 		h_out = (vectorr) malloc(numBytes); 
+		h_filt = (vectorr) malloc(numBytesF);
 	}
   
 	cudaEventRecord(E0, 0);
@@ -248,21 +244,20 @@ int main(int argc, char** argv)
 
 	// Copiar datos desde el host en el device 
 	cudaMemcpy(d_in, h_in, numBytes, cudaMemcpyHostToDevice);
-	cudaMemcpy(d_out, h_out, numBytes, cudaMemcpyHostToDevice);
 	cudaMemcpy(d_filt, h_filt, numBytesF, cudaMemcpyHostToDevice);
+	cudaMemcpy(d_out, h_out, numBytes, cudaMemcpyHostToDevice);
+
 
 	cudaEventRecord(E1, 0);
 	cudaEventSynchronize(E1);
 
-	//~ fprintf(stderr, "Abans kernel\n");
+	fprintf(stderr, "Abans kernel\n");
 	// Ejecutar el kernel 
 	/***********************/
 	/***********************/
 	/***********************/
 	/***********************/
-	//~ print(width, height, h_in);
-	//~ print(gauss, gauss, h_filt);
-	applyFilt<<<dimGrid, dimBlock>>>(N, N, gauss, d_in, d_filt, d_out);
+	applyKK<<<dimGrid, dimBlock>>>(N, N, gauss, d_in, d_filt, d_out);
 	/***********************/
 	/***********************/
 	/***********************/
@@ -295,6 +290,19 @@ int main(int argc, char** argv)
 	printf("Rendimiento Global: %4.2f GFLOPS\n", (ops / (1000000.0 * TiempoTotal)));
 	printf("Rendimiento Kernel: %4.2f GFLOPS\n", (ops / (1000000.0 * TiempoKernel)));
 	cudaEventDestroy(E0); cudaEventDestroy(E1); cudaEventDestroy(E2); cudaEventDestroy(E3);
+
+	//~ begin = clock();
+	//~ vectorr m = img2bw(width, height, row_pointers);
+	//~ end = clock();
+	//~ double elapsed_bw = double(end - begin) / CLOCKS_PER_SEC;
+	//~ fprintf(stderr, "B&W2 -- %f\n", elapsed_bw);
+	//~ vectorr filt;
+	//~ vectorr C;
+	//~ InitM(3,3,filt);
+	//~ gaussFilt(3, filt);
+	//~ print(3,3,filt);
+	//~ C = TestCM(width, height, 3, m, filt);
+	//~ fprintf(stderr, "TEST\n");
 	
 	row_pointers = greyChar(width, height, h_out);
 	fprintf(stderr, "GREYED\n");
