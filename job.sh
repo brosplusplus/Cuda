@@ -9,5 +9,7 @@
 # Cambiar el shell
 #$ -S /bin/bash
 
-./exe -g 33 -i img/world.png
+#./exe -g 33 -i img/world.png
+./test -g 33 -i img/world.png
+
 

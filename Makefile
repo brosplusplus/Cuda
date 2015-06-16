@@ -1,4 +1,4 @@
-SRC=projecte.cu,readpng.cpp,job.sh,job.mt
+SRC=projecte.cpp,projecte.cu,readpng.cpp,job.sh,job.mt
 
 
 all: test
@@ -7,6 +7,10 @@ test: projecte.cu readpng.cpp
 	g++ --std=c++11 -o test projecte.cpp -lpng -I.
 
 prod:
+	scp -r {$(SRC)} cuda:/scratch/nas/1/cuda07/project/
+	ssh cuda 'cd /scratch/nas/1/cuda07/project/; make && qsub -l cuda job.sh && qstat'
+	
+prodCPU:
 	scp -r {$(SRC)} cuda:/scratch/nas/1/cuda07/project/
 	ssh cuda 'cd /scratch/nas/1/cuda07/project/; make && qsub -l cuda job.sh && qstat'
 	

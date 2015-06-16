@@ -53,7 +53,7 @@ __global__ void applyFilt(int N, int M, int P, vectorr entrada, vectorr filt, ve
 //
 }
 
-vectorr img2bw(int N, int M, unsigned char** foto, int offset)
+vectorr img2bw(int N, int M, unsigned char** foto)
 {
 			//0.21 R + 0.72 G + 0.07 B
 	int i, j;
@@ -61,9 +61,9 @@ vectorr img2bw(int N, int M, unsigned char** foto, int offset)
 	int size = N*M;
 	vectorr ret = (vectorr) malloc(size*sizeof(float));
 	//~ fprintf(stderr, "%d -> %lu\n", (N*M), (N*M*sizeof(float)));
-	for (i=0; i<M + offset; i++) {
+	for (i=0; i<M; i++) {
 		unsigned char* r = foto[i];			
-		for (j=0; j<N + offset; j++) {
+		for (j=0; j<N; j++) {
 			unsigned char* ptr = &(r[j*4]);
 			float aux = float(0.21*ptr[0] + 0.72*ptr[1] + 0.07*ptr[2])/255.0;
 			ret[i*M+j] = aux;
