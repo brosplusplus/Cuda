@@ -31,9 +31,11 @@ __global__ void applyFilt(int N, int M, int P, vectorr entrada, vectorr filt, ve
 	j = column;
 //or (j = mod; j < M-mod; ++j)
 //
+	printf("row: %d, column %d\n", row, column);
 	if (row >= mod && column >= mod && row < N-mod && column < M-mod) 
 	{
 		acc = 0;
+		printf("AUX %d\n", filt[0]); 
 		for (k=0; k<P; k++) {
 			//calculem l'index dintre del filtre utilitzant 
 			//mod com a pivot
@@ -43,12 +45,16 @@ __global__ void applyFilt(int N, int M, int P, vectorr entrada, vectorr filt, ve
 				float auxb = filt[k*P+l];
 				acc = acc + aux * auxb;
 			}
+			printf("AUX %d", filt[k*P+0]); 
 		}
 		sortida[row*N+j] =  acc;
 	}
 	else if (row >= 0 && column >= 0 && row < N-1 && column < M-1){
 		acc = entrada[row*N+j];
-		//~ printf("no he entrat. %d, %d\n", row, column);
+		printf("no he entrat. %d, %d\n", row, column);
+	}
+	else {
+		printf("no he entrat. %d, %d\n", row, column);
 	}
 //
 }
@@ -82,6 +88,22 @@ vectorr gaussFilt(int N)
 	return ret;
 }
 
+vectorr laplaceFilt()
+{
+	
+	vectorr ret = (vectorr) malloc(3*3*sizeof(float));
+	ret[0] = 0;
+	ret[1] = -4;
+	ret[2] = 0;
+	ret[3] = -4;
+	ret[4] = 16;
+	ret[5] = -4;
+	ret[6] = 0;
+	ret[7] = -4;
+	ret[8] = 0;
+	return ret;
+}
+
 
 void print(int N, int M, float *C)
 {
@@ -101,7 +123,7 @@ unsigned char** greyChar(int N, int M, vectorr m)
 	unsigned char** ret = (unsigned char**) malloc(M*sizeof(unsigned char*));
 	//~ std::vector<bool> v(N*M*sizeof(float));
 	int i,j;
-	int count = 0;
+	//int count = 0;	
 	for (i=0; i<M; i++) {
 		unsigned char* row = (unsigned char*) malloc(4*N*sizeof(unsigned char));
 		for (j=0; j<N; j++) {
@@ -122,6 +144,23 @@ unsigned char** greyChar(int N, int M, vectorr m)
 	return ret;
 }
 
+
+
+void printPerf(char *nombre, int N,unsigned int nThreads,unsigned int  nBlocks,
+		float TiempoTotal, float TiempoKernel, float ops) {
+	float GFlop = ops;
+	float totalSec = TiempoTotal/1000.0;
+	float kernelSec = TiempoKernel/1000.0;
+	printf("\nFilter CUDA: %s\n", nombre);
+	printf("Dimensiones: %dx%d\n", N, N);
+	printf("nThreads: %dx%d (%d)\n", nThreads, nThreads, nThreads * nThreads);
+	printf("nBlocks: %dx%d (%d)\n", nBlocks, nBlocks, nBlocks*nBlocks);
+	printf("Tiempo Global: %4.6f milseg\n", TiempoTotal);
+	printf("Tiempo Kernel: %4.6f milseg\n", TiempoKernel);
+	printf("Rendimiento Global: %4.2f GFLOPS\n", (GFlop / totalSec));
+	printf("Rendimiento Kernel: %4.2f GFLOPS\n\n", (GFlop / kernelSec));
+}
+
 int main(int argc, char** argv)
 {
 	int c;
@@ -135,11 +174,13 @@ int main(int argc, char** argv)
 	unsigned int nBlocks, nThreads;
 	
 	vectorr 	h_in, d_in;
-	vectorr		h_out_gauss, h_out_laplace, d_out;
-	vectorr		h_filt_guass, d_filt_gauss,
-			h_filt_lapla, d_filt_lapla;
+	vectorr		h_out_gauss, h_out_lapla, d_out;
+	vectorr		h_filt_gauss, d_filt_gauss,
+				h_filt_lapla, d_filt_lapla;
 	
-	float TiempoTotal, TiempoKernel;
+	float TiempoTotal, TiempoKernel,
+			elapsed_read,
+			elapsed_write;
 	cudaEvent_t E0, E1, E2, E3;
 
 	
@@ -148,7 +189,8 @@ int main(int argc, char** argv)
 		switch (c)
 		{
 			case 'a':
-				gauss=laplace=sharpen=bumping=noise=histo=1;
+				gauss=3;
+				laplace=sharpen=bumping=noise=histo=1;
 				break;
 			case 'b':
 				bumping = 1;
@@ -190,8 +232,9 @@ int main(int argc, char** argv)
 	//~ fprintf(stderr, "toread\n");
 	begin = clock();
 	read_png_file(image);
+	h_in = img2bw(width, height, row_pointers);
 	end = clock();
-	//~ double elapsed_read = (double(end-begin)/CLOCKS_PER_SEC);
+	elapsed_read = (float(end-begin)/CLOCKS_PER_SEC);
 	if (png_get_color_type(png_ptr, info_ptr) == PNG_COLOR_TYPE_RGB)
 		abort_("[process_file] input file is PNG_COLOR_TYPE_RGB but must be PNG_COLOR_TYPE_RGBA ",
 						"(lacks the alpha channel)");
@@ -200,11 +243,8 @@ int main(int argc, char** argv)
 		abort_("[process_file] color_type of input file must be PNG_COLOR_TYPE_RGBA (%d) (is %d)",
 					 PNG_COLOR_TYPE_RGBA, png_get_color_type(png_ptr, info_ptr));
 	
-	h_filt = gaussFilt(gauss);
 	//~ printf("Filtre de gauss\n");
 	//~ print(gauss,gauss, h_filt);
-	int mod = (gauss-1)/2; //per ampliar la foto i evitar segfault.
-	h_in = img2bw(width, height, row_pointers, mod);
 
 	N = height;
 	  // numero de Threads en cada dimension 
@@ -219,87 +259,159 @@ int main(int argc, char** argv)
 	dim3 dimGrid(nBlocks, nBlocks, 1);
 	dim3 dimBlock(nThreads, nThreads, 1);
 	
-	cudaEventCreate(&E0);
-	cudaEventCreate(&E1);
-	cudaEventCreate(&E2);
-	cudaEventCreate(&E3);
-  	
-	if (PINNED) {
-	// Obtiene Memoria [pinned] en el host
-		//~ cudaMallocHost((unsigned char**)&row_pointers, numBytes); 
-		cudaMallocHost((float**)&h_out, numBytes); 
-		cudaMallocHost((vectorr*)&h_filt, numBytesF);
-	}
-	else {
+	if (gauss != 0)
+	{
+		h_filt_gauss = gaussFilt(gauss);
+		int mod = (gauss-1)/2; //margen que no se calculará
+		cudaEventCreate(&E0);
+		cudaEventCreate(&E1);
+		cudaEventCreate(&E2);
+		cudaEventCreate(&E3);
+		
 		// Obtener Memoria en el host
 		//~ row_pointers = (unsigned char**) malloc(numBytes); 
-		h_out = (vectorr) malloc(numBytes); 
+		h_out_gauss = (vectorr) malloc(numBytes); 
+	  
+		cudaEventRecord(E0, 0);
+		cudaEventSynchronize(E0);
+
+
+		// Obtener Memoria en el device
+		//~ cudaMalloc((unsigned char **)&d_in, numBytes); 
+		cudaMalloc((vectorr*)&d_in, numBytes); 
+		cudaMalloc((vectorr*)&d_out, numBytes); 
+		cudaMalloc((vectorr*)&d_filt_gauss, numBytesF); 
+
+		// Copiar datos desde el host en el device 
+		cudaMemcpy(d_in, h_in, numBytes, cudaMemcpyHostToDevice);
+		cudaMemcpy(d_out, h_out_gauss, numBytes, cudaMemcpyHostToDevice);
+		cudaMemcpy(d_filt_gauss, h_filt_gauss, numBytesF, cudaMemcpyHostToDevice);
+
+		cudaEventRecord(E1, 0);
+		cudaEventSynchronize(E1);
+
+		//~ fprintf(stderr, "Abans kernel\n");
+		// Ejecutar el kernel 
+		/***********************/
+		/***********************/
+		/***********************/
+		/***********************/
+		//~ print(width, height, h_in);
+		//~ print(gauss, gauss, h_filt);
+		applyFilt<<<dimGrid, dimBlock>>>(N, N, gauss, d_in, d_filt_gauss, d_out);
+		/***********************/
+		/***********************/
+		/***********************/
+		/***********************/
+		cudaEventRecord(E2, 0);
+		cudaEventSynchronize(E2);
+
+		// Obtener el resultado desde el host 
+		cudaMemcpy(h_out_gauss, d_out, numBytes, cudaMemcpyDeviceToHost); 
+
+		// Liberar Memoria del device 
+		cudaFree(d_in);
+		cudaFree(d_filt_gauss);
+		cudaFree(d_out);
+
+		cudaEventRecord(E3, 0);
+		cudaEventSynchronize(E3);
+
+		cudaEventElapsedTime(&TiempoTotal,  E0, E3);
+		cudaEventElapsedTime(&TiempoKernel, E1, E2);
+
+		begin = clock();
+		row_pointers = greyChar(width, height, h_out_gauss);
+		write_png_file(output);	
+		end = clock();
+		elapsed_write = (float(end-begin)/CLOCKS_PER_SEC);
+		
+		
+		float ops = ((N-gauss)/1000000000.0)*(N-gauss)*(gauss)*(gauss)*2.0;
+		printf("OPS: %f", ops);
+		printPerf("Gauss", N, nThreads, nBlocks,
+				TiempoTotal+elapsed_read+elapsed_write,
+				TiempoKernel, ops);
+		
+		cudaEventDestroy(E0); cudaEventDestroy(E1); cudaEventDestroy(E2); cudaEventDestroy(E3);
 	}
-  
-	cudaEventRecord(E0, 0);
-	cudaEventSynchronize(E0);
+	if (laplace)
+	{
+		h_filt_lapla = laplaceFilt();
+		
+		cudaEventCreate(&E0);
+		cudaEventCreate(&E1);
+		cudaEventCreate(&E2);
+		cudaEventCreate(&E3);
+		
+		// Obtener Memoria en el host
+		//~ row_pointers = (unsigned char**) malloc(numBytes); 
+		h_out_lapla = (vectorr) malloc(numBytes); 
+	  
+		cudaEventRecord(E0, 0);
+		cudaEventSynchronize(E0);
 
 
-	// Obtener Memoria en el device
-	//~ cudaMalloc((unsigned char **)&d_in, numBytes); 
-	cudaMalloc((vectorr*)&d_in, numBytes); 
-	cudaMalloc((vectorr*)&d_out, numBytes); 
-	cudaMalloc((vectorr*)&d_filt, numBytesF); 
+		// Obtener Memoria en el device
+		//~ cudaMalloc((unsigned char **)&d_in, numBytes); 
+		cudaMalloc((vectorr*)&d_in, numBytes); 
+		cudaMalloc((vectorr*)&d_out, numBytes); 
+		cudaMalloc((vectorr*)&d_filt_lapla, numBytesF); 
 
-	// Copiar datos desde el host en el device 
-	cudaMemcpy(d_in, h_in, numBytes, cudaMemcpyHostToDevice);
-	cudaMemcpy(d_out, h_out, numBytes, cudaMemcpyHostToDevice);
-	cudaMemcpy(d_filt, h_filt, numBytesF, cudaMemcpyHostToDevice);
+		// Copiar datos desde el host en el device 
+		cudaMemcpy(d_in, h_in, numBytes, cudaMemcpyHostToDevice);
+		cudaMemcpy(d_out, h_out_lapla, numBytes, cudaMemcpyHostToDevice);
+		cudaMemcpy(d_filt_lapla, h_filt_lapla, numBytesF, cudaMemcpyHostToDevice);
 
-	cudaEventRecord(E1, 0);
-	cudaEventSynchronize(E1);
+		cudaEventRecord(E1, 0);
+		cudaEventSynchronize(E1);
 
-	//~ fprintf(stderr, "Abans kernel\n");
-	// Ejecutar el kernel 
-	/***********************/
-	/***********************/
-	/***********************/
-	/***********************/
-	//~ print(width, height, h_in);
-	//~ print(gauss, gauss, h_filt);
-	applyFilt<<<dimGrid, dimBlock>>>(N, N, gauss, d_in, d_filt, d_out);
-	/***********************/
-	/***********************/
-	/***********************/
-	/***********************/
-	cudaEventRecord(E2, 0);
-	cudaEventSynchronize(E2);
+		//~ fprintf(stderr, "Abans kernel\n");
+		// Ejecutar el kernel 
+		/***********************/
+		/***********************/
+		/***********************/
+		/***********************/
+		//~ print(width, height, h_in);
+		print(3, 3, h_filt_lapla);
+		applyFilt<<<dimGrid, dimBlock>>>(N, N, 3, d_in, d_filt_lapla, d_out);
+		cudaDeviceSynchronize();
+		/***********************/
+		/***********************/
+		/***********************/
+		/***********************/
+		cudaEventRecord(E2, 0);
+		cudaEventSynchronize(E2);
 
-	// Obtener el resultado desde el host 
-	cudaMemcpy(h_out, d_out, numBytes, cudaMemcpyDeviceToHost); 
+		// Obtener el resultado desde el host 
+		cudaMemcpy(h_out_lapla, d_out, numBytes, cudaMemcpyDeviceToHost); 
 
-	// Liberar Memoria del device 
-	cudaFree(d_in);
-	cudaFree(d_filt);
-	cudaFree(d_out);
+		// Liberar Memoria del device 
+		cudaFree(d_in);
+		cudaFree(d_filt_lapla);
+		cudaFree(d_out);
 
-	cudaEventRecord(E3, 0);
-	cudaEventSynchronize(E3);
+		cudaEventRecord(E3, 0);
+		cudaEventSynchronize(E3);
 
-	cudaEventElapsedTime(&TiempoTotal,  E0, E3);
-	cudaEventElapsedTime(&TiempoKernel, E1, E2);
-	printf("\nKERNEL 00\n");
-	printf("Dimensiones: %dx%d\n", N, N);
-	printf("nThreads: %dx%d (%d)\n", nThreads, nThreads, nThreads * nThreads);
-	printf("nBlocks: %dx%d (%d)\n", nBlocks, nBlocks, nBlocks*nBlocks);
-	if (PINNED) printf("Usando Pinned Memory\n");
-	else printf("NO usa Pinned Memory\n");
-	printf("Tiempo Global: %4.6f milseg\n", TiempoTotal);
-	printf("Tiempo Kernel: %4.6f milseg\n", TiempoKernel);
-	float ops = (float) gauss*( float) gauss * (float) N * (float) N;
-	printf("Rendimiento Global: %4.2f GFLOPS\n", (ops / (1000000.0 * TiempoTotal)));
-	printf("Rendimiento Kernel: %4.2f GFLOPS\n", (ops / (1000000.0 * TiempoKernel)));
-	cudaEventDestroy(E0); cudaEventDestroy(E1); cudaEventDestroy(E2); cudaEventDestroy(E3);
-	
-	row_pointers = greyChar(width, height, h_out);
-	fprintf(stderr, "GREYED\n");
-	write_png_file(output);	
-	
+		cudaEventElapsedTime(&TiempoTotal,  E0, E3);
+		cudaEventElapsedTime(&TiempoKernel, E1, E2);
+
+		begin = clock();
+		row_pointers = greyChar(width, height, h_out_lapla);
+		fprintf(stderr, "GREYED\n");
+		write_png_file(output);	
+		end = clock();
+		elapsed_write = (float(end-begin)/CLOCKS_PER_SEC);
+		
+		
+		float ops = ((N-3)/1000000000.0)*(N-3)*(gauss)*(gauss)*2.0;
+		printPerf("LAPLACE", N, nThreads, nBlocks,
+				TiempoTotal+elapsed_read+elapsed_write,
+				TiempoKernel, ops);
+		
+		cudaEventDestroy(E0); cudaEventDestroy(E1); cudaEventDestroy(E2); cudaEventDestroy(E3);
+	}
 	return 0;
 }    
 
