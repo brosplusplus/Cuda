@@ -10,25 +10,35 @@
 #$ -S /bin/bash
 
 #~ im=`ls -Sr img/`
-#~ mkdir outputs
+mkdir -p outputs
 #~ 
 #~ for i in $im
 #~ do
-	#~ ./exe -g 3 -i "img/$i" -o "outputs/gaussCUDA3-$i.png"
-	#~ ./test -g 3 -i "img/$i" -o "outputs/gaussCPU3-$i"
-	#~ ./exe -l -i "img/$i" -o "outputs/laplaCUDA3-$i"
-	#~ ./test -l -i "img/$i" -o "outputs/laplaCPU3-$i"	
+	#~ echo "$i CUDA 3x3"
+	#~ ./kernelGPU.exe -g 3 -i img/$i -o outputs/gaussCUDA3-$i.png
+	#~ echo "$i CPU 3x3"
+	#~ ./kernelCPU.exe -g 3 -i img/$i -o outputs/gaussCPU3-$i
+	##~ ./exe -l -i "img/$i" -o "outputs/laplaCUDA3-$i"
+	##~ ./test -l -i "img/$i" -o "outputs/laplaCPU3-$i"	
 #~ done
 
-for i in 3 5 7 11 13 15 17 19 21 23 25 27 29 31 33 45 55 75 85 95 105
-do
-	echo "tamany $i"
-	./exe -g "$i" -i img/world.png -o "outputs/guassCUDAworld-$i.png"
-	./test -g "$i" -i img/world.png -o "outputs/gaussCPUworld-$i.png"
-done
+#~ for i in 3 13 23 33 45 55 75 85 95 105
+#~ do
+	#~ echo "tamany $i"
+	#~ ./kernelGPU.exe -g "$i" -i img/world.png -o outputs/guassCUDAworld-$i.png
+	#~ ./kernelCPU.exe -g "$i" -i img/world.png -o outputs/gaussCPUworld-$i.png
+#~ done
 
-tar -zxf outputs-`date +"%D-%H-%M"`.tar.gz outputs
-rm -rf outputs
+./kernelCPU.exe -g 3 -i img/world.png -o outputs/gaussCPUworld-003.png
+./kernelCPU.exe -g 13 -i img/world.png -o outputs/gaussCPUworld-013.png
+./kernelCPU.exe -g 25 -i img/world.png -o outputs/gaussCPUworld-025.png
+./kernelCPU.exe -g 39 -i img/world.png -o outputs/gaussCPUworld-039.png
+./kernelCPU.exe -g 55 -i img/world.png -o outputs/gaussCPUworld-055.png
+./kernelCPU.exe -g 73 -i img/world.png -o outputs/gaussCPUworld-073.png
+./kernelCPU.exe -g 93 -i img/world.png -o outputs/gaussCPUworld-093.png
+./kernelCPU.exe -g 115 -i img/world.png -o outputs/gaussCPUworld-115.png
+
+tar -zcf outputs-`date +"%d_%H-%M"`.tar.gz outputs && rm -rf outputs/*
 
 #~ ./exe -g 3 -i img/cuda.png -o cuda3GPU.png
 # ./exe -g 5 -i img/Windows_icon.svg.png -o Windows5GPU.png

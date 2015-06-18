@@ -31,11 +31,9 @@ __global__ void applyFilt(int N, int M, int P, vectorr entrada, vectorr filt, ve
 	j = column;
 //or (j = mod; j < M-mod; ++j)
 //
-	printf("row: %d, column %d\n", row, column);
 	if (row >= mod && column >= mod && row < N-mod && column < M-mod) 
 	{
 		acc = 0;
-		printf("AUX %d\n", filt[0]); 
 		for (k=0; k<P; k++) {
 			//calculem l'index dintre del filtre utilitzant 
 			//mod com a pivot
@@ -45,16 +43,11 @@ __global__ void applyFilt(int N, int M, int P, vectorr entrada, vectorr filt, ve
 				float auxb = filt[k*P+l];
 				acc = acc + aux * auxb;
 			}
-			printf("AUX %d", filt[k*P+0]); 
 		}
 		sortida[row*N+j] =  acc;
 	}
 	else if (row >= 0 && column >= 0 && row < N-1 && column < M-1){
 		acc = entrada[row*N+j];
-		printf("no he entrat. %d, %d\n", row, column);
-	}
-	else {
-		printf("no he entrat. %d, %d\n", row, column);
 	}
 //
 }
@@ -224,6 +217,7 @@ int main(int argc, char** argv)
 		fprintf(stderr, "ERROR: Necesito una imagen\n");
 		return -1;
 	}
+	printf("%s\n", image);
 	if (output == NULL) {
 		fprintf(stderr, "WARN: Tomando salida por defecto : salida.png\n");
 		output = "salida.png";
@@ -328,7 +322,7 @@ int main(int argc, char** argv)
 		
 		
 		float ops = ((N-gauss)/1000000000.0)*(N-gauss)*(gauss)*(gauss)*2.0;
-		printf("OPS: %f", ops);
+		printf("GOPS: %f", ops);
 		printPerf("Gauss", N, nThreads, nBlocks,
 				TiempoTotal+elapsed_read+elapsed_write,
 				TiempoKernel, ops);

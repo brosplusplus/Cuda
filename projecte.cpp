@@ -7,8 +7,24 @@
 #include <ctime>
 #include "readpng.cpp"
 
+#include <iostream>
+
+using namespace std;
 typedef float*  vectorr;
 
+
+
+
+void print(int N, int M, float *C)
+{
+	int i, j;
+	for (i=0; i<N; i++) {
+		for (j=0; j<M; j++) {
+			printf("%f ", C[i*M+j]);
+		}
+		printf("\n");
+	}
+}
 
 vectorr img2bw(int N, int M, unsigned char** foto)
 {
@@ -30,15 +46,15 @@ vectorr img2bw(int N, int M, unsigned char** foto)
 	return ret;
 }
 
-void TestCM(int N, int M, int P, vectorr A, vectorr B, vectorr C) {
+void TestCM(int N, int M, int P, vectorr& A, vectorr& B, vectorr& C) {
 	int i, j, k,l;
 	float tmp;
 	float acc;
 	int count;
 	int mod=(P-1)/2;
 	C = (vectorr) malloc(N*M*sizeof(float));
-	for (i=1; i<N-(mod-1); i++) {
-		for (j=1; j<M-(mod-1); j++) {
+	for (i=mod; i<N-(mod); i++) {
+		for (j=mod; j<M-(mod); j++) {
 			acc = 0.0;
 			for (k=0; k<P; k++) {
 				for (l=0; l<P; l++) {
@@ -112,11 +128,12 @@ vectorr laplaceFilt()
 
 void printPerf(float TiempoTotal, float TiempoAplic, float ops)
 {
-	printf("Filter application CPU");
-	printf("Tiempo Global: %4.6f milseg\n", TiempoTotal);
-	printf("Tiempo Aplicar Filtro: %4.6f milseg\n", TiempoAplic);
-	printf("Rendimiento Global: %4.2f GFLOPS\n", (ops / (1000000.0 * TiempoTotal)));
-	printf("Rendimiento Kernel: %4.2f GFLOPS\n", (ops / (1000000.0 * TiempoAplic)));
+	cout << TiempoTotal*1000 << ' ' << TiempoAplic*1000 << ' ' << ops << endl;
+	printf("\n\tFilter application CPU\n");
+	printf("\tTiempo Global: %4.6f milseg\n", TiempoTotal*1000.0);
+	printf("\tTiempo Aplicar Filtro: %4.6f milseg\n", TiempoAplic*1000.0);
+	printf("\tRendimiento Global: %4.2f GFLOPS\n", (ops / float(TiempoTotal)));
+	printf("\tRendimiento Kernel: %4.2f GFLOPS\n", (ops / float(TiempoAplic)));
 }
 
 int main(int argc, char** argv)
@@ -181,6 +198,7 @@ int main(int argc, char** argv)
 		fprintf(stderr, "ERROR: Necesito una imagen\n");
 		return -1;
 	}
+	printf("%s\n", image);
 	if (output == NULL) {
 		fprintf(stderr, "WARN: Tomando salida por defecto : salida.png\n");
 		output = "salida.png";
@@ -218,6 +236,7 @@ int main(int argc, char** argv)
 		h_out_gauss = (vectorr) malloc(numBytes); 
 		h_filt_gauss = gaussFilt(gauss);
 		TestCM(N, N, gauss, h_in, h_filt_gauss, h_out_gauss);
+		//~ print(width, width, h_out_gauss);
 		end = clock();
 		TiempoAplic = (float(end-begin)/CLOCKS_PER_SEC);
 		/***********************/
@@ -231,7 +250,7 @@ int main(int argc, char** argv)
 		end = clock();
 		elapsed_write = (float(end-begin)/CLOCKS_PER_SEC);
 
-		float ops = (N-mod)*(N-mod) * (gauss*gauss);
+		float ops = ((N-gauss)/1000000000.0)*(N-gauss)*(gauss)*(gauss)*2.0;
 		printPerf(elapsed_read+elapsed_write+TiempoAplic, TiempoAplic, ops);
 	}
 	if (laplace)
